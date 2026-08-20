@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64</Platforms>
+    <Authors>Nozomu-san</Authors>
+    <FileVersion>16.08.2026.0</FileVersion>
+    <AssemblyVersion>16.08.2026.0</AssemblyVersion>
+    <AssemblyTitle>Standard Data Pipeline Processor</AssemblyTitle>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="Source\" />
+  </ItemGroup>
+
+</Project>
