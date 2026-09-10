@@ -4,49 +4,105 @@ namespace StandardJsonConfiguration.Source;
 
 internal static class JsonProviderCatalog
 {
-    internal static IReadOnlyList<IDataProvider<T>> Build<T>(
+    internal static async Task<IReadOnlyList<IDataProvider<T>>> BuildAsync<T>(
         JsonLayout layout,
         JsonContract<T> contract,
-        JsonConfigurationPolicy policy)
+        JsonConfigurationPolicy policy,
+        CancellationToken cancellationToken)
     {
-        List<IDataProvider<T>> providers = [];
+        ArgumentNullException.ThrowIfNull(layout);
+        ArgumentNullException.ThrowIfNull(contract);
+        ArgumentNullException.ThrowIfNull(policy);
 
-        if (policy.LoadPrimary)
+        List<IDataProvider<T>> providers = [];
+        if (layout.PrimaryPath is string primaryPath)
         {
             providers.Add(new JsonProvider<T>(
-                layout.PrimaryPath,
-                contract));
+                primaryPath,
+                contract,
+                policy.MaximumFileBytes));
         }
 
-        string? addonDirectory = layout.AddonDirectory;
-        if (!policy.LoadAddons ||
-            string.IsNullOrWhiteSpace(addonDirectory) ||
-            !Directory.Exists(addonDirectory))
+        if (layout.AddonDirectory is not string addonDirectory)
         {
             return providers.AsReadOnly();
         }
 
-        SearchOption searchOption = policy.RecursiveAddons
-            ? SearchOption.AllDirectories
-            : SearchOption.TopDirectoryOnly;
-
-        string[] files = [.. Directory
-            .EnumerateFiles(
+        string[] files;
+        try
+        {
+            files = await DiscoverFilesAsync(
                 addonDirectory,
                 layout.SearchPattern,
-                searchOption)
-            .Select(Path.GetFullPath)
-            .Where(path =>
-                !path.Equals(
-                    Path.GetFullPath(layout.PrimaryPath),
-                    StringComparison.OrdinalIgnoreCase))
-            .Order(StringComparer.OrdinalIgnoreCase)];
+                policy.RecursiveAddons,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            providers.Add(new FixedJsonProvider<T>(
+                DataProviderResult<T>.Missing(addonDirectory)));
+            return providers.AsReadOnly();
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            providers.Add(new FixedJsonProvider<T>(
+                DataProviderResult<T>.Failure(
+                    DataProviderStatus.Unavailable,
+                    addonDirectory,
+                    new DataValidationIssue(
+                        DataValidationSeverity.Error,
+                        $"JSON addon directory '{addonDirectory}' could not be enumerated: {exception.Message}"))));
+            return providers.AsReadOnly();
+        }
+
+        string? normalizedPrimary = layout.PrimaryPath is string primary
+            ? Path.GetFullPath(primary)
+            : null;
 
         foreach (string file in files)
         {
-            providers.Add(new JsonProvider<T>(file, contract));
+            if (normalizedPrimary is not null &&
+                file.Equals(
+                    normalizedPrimary,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            providers.Add(new JsonProvider<T>(
+                file,
+                contract,
+                policy.MaximumFileBytes));
         }
 
         return providers.AsReadOnly();
     }
+
+    private static Task<string[]> DiscoverFilesAsync(
+        string directory,
+        string pattern,
+        bool recursive,
+        CancellationToken cancellationToken) =>
+        Task.Run(
+            () =>
+            {
+                SearchOption option = recursive
+                    ? SearchOption.AllDirectories
+                    : SearchOption.TopDirectoryOnly;
+                List<string> files = [];
+
+                foreach (string file in Directory.EnumerateFiles(
+                    directory,
+                    pattern,
+                    option))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    files.Add(Path.GetFullPath(file));
+                }
+
+                files.Sort(StringComparer.OrdinalIgnoreCase);
+                return files.ToArray();
+            },
+            cancellationToken);
 }

@@ -1,5 +1,3 @@
-using StandardDataPipeline.Source;
-
 namespace StandardJsonConfiguration.Source;
 
 public enum PrimaryWriteBackMode
@@ -9,13 +7,25 @@ public enum PrimaryWriteBackMode
     Explicit
 }
 
-public sealed record JsonConfigurationPolicy
+public enum JsonProviderFailureMode
 {
-    public bool LoadPrimary { get; init; } = true;
-    public bool LoadAddons { get; init; } = true;
-    public bool RecursiveAddons { get; init; }
-    public PrimaryWriteBackMode PrimaryWriteBack { get; init; } =
-        PrimaryWriteBackMode.Never;
+    Stop,
+    Skip
+}
 
-    public DataPipelinePolicy Pipeline { get; init; } = new();
+public sealed class JsonConfigurationPolicy
+{
+    public bool RecursiveAddons { get; set; }
+    public PrimaryWriteBackMode PrimaryWriteBack { get; set; } =
+        PrimaryWriteBackMode.Never;
+    public bool StartWithDefault { get; set; } = true;
+    public JsonProviderFailureMode MissingProvider { get; set; } =
+        JsonProviderFailureMode.Skip;
+    public JsonProviderFailureMode InvalidProvider { get; set; } =
+        JsonProviderFailureMode.Stop;
+    public JsonProviderFailureMode UnavailableProvider { get; set; } =
+        JsonProviderFailureMode.Stop;
+    public int? MaximumConcurrentFiles { get; set; }
+    public TimeSpan? FileTimeout { get; set; }
+    public long? MaximumFileBytes { get; set; }
 }

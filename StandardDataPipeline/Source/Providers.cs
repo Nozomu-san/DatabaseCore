@@ -1,49 +1,41 @@
 namespace StandardDataPipeline.Source;
 
-public sealed class BuiltInDefaultDataProvider<T>(
-    IDataModule<T> module) : IDataProvider<T>
+public sealed class InMemoryDataProvider<T>(string name, T? value) : IDataProvider<T>
 {
-    private readonly IDataModule<T> _module =
-        module ?? throw new ArgumentNullException(nameof(module));
+    public string Name { get; } = NormalizeName(name, "InMemory");
 
-    public string Name => "BuiltInDefault";
-
-    public ValueTask<DataProviderResult<T>> LoadAsync(
-        DataPipelineContext context,
+    public Task<DataProviderResult<T>> LoadAsync(
         CancellationToken cancellationToken)
     {
-        _ = context;
         cancellationToken.ThrowIfCancellationRequested();
-
-        return ValueTask.FromResult(
-            DataProviderResult<T>.Success(
-                _module.CreateDefault(),
-                Name));
+        return Task.FromResult(
+            value is null
+                ? DataProviderResult<T>.Missing(Name)
+                : DataProviderResult<T>.Success(value!, Name));
     }
+
+    private static string NormalizeName(string name, string fallback) =>
+        string.IsNullOrWhiteSpace(name)
+            ? fallback
+            : name.Trim();
 }
 
 public sealed class RuntimeMemoryDataProvider<T>(
     string name,
-    Func<CancellationToken, ValueTask<T?>> reader) :
-    IDataProvider<T>
+    Func<CancellationToken, Task<T?>> reader) : IDataProvider<T>
 {
-    private readonly Func<CancellationToken, ValueTask<T?>> _reader =
-        reader ?? throw new ArgumentNullException(nameof(reader));
+    private readonly Func<CancellationToken, Task<T?>> _reader = reader ?? throw new ArgumentNullException(nameof(reader));
 
-    public string Name { get; } =
-        string.IsNullOrWhiteSpace(name)
+    public string Name { get; } = string.IsNullOrWhiteSpace(name)
             ? "RuntimeMemory"
             : name.Trim();
 
-    public async ValueTask<DataProviderResult<T>> LoadAsync(
-        DataPipelineContext context,
+    public async Task<DataProviderResult<T>> LoadAsync(
         CancellationToken cancellationToken)
     {
-        _ = context;
         T? value = await _reader(cancellationToken).ConfigureAwait(false);
-
         return value is null
             ? DataProviderResult<T>.Missing(Name)
-            : DataProviderResult<T>.Success(value, Name);
+            : DataProviderResult<T>.Success(value!, Name);
     }
 }

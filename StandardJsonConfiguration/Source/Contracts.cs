@@ -1,12 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using StandardDataPipeline.Source;
 
 namespace StandardJsonConfiguration.Source;
 
-public sealed record JsonContract<T>
+public sealed class JsonContract<T>
 {
-    public JsonSerializerOptions Options { get; init; } =
+    private JsonSerializerOptions _options =
         new(JsonSerializerDefaults.General)
         {
             AllowTrailingCommas = true,
@@ -14,15 +13,41 @@ public sealed record JsonContract<T>
             WriteIndented = true
         };
 
-    public JsonTypeInfo<T>? TypeInfo { get; init; }
+    public JsonSerializerOptions Options
+    {
+        get => _options;
+        set => _options = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    public JsonTypeInfo<T>? TypeInfo { get; set; }
+}
+
+public enum JsonConfigurationSeverity
+{
+    Information,
+    Warning,
+    Error
+}
+
+public readonly record struct JsonConfigurationIssue(
+    JsonConfigurationSeverity Severity,
+    string Message);
+
+public interface IJsonConfigurationModule<T>
+{
+    string DataType { get; }
+    T CreateDefault();
+    T Merge(T current, T incoming);
+    IReadOnlyList<JsonConfigurationIssue> Validate(T value);
 }
 
 public readonly record struct JsonConfigurationResult<T>(
     T Value,
-    IReadOnlyList<string> AppliedFiles,
-    IReadOnlyList<DataValidationIssue> Issues)
+    IReadOnlyList<string> AppliedSources,
+    IReadOnlyList<JsonConfigurationIssue> Issues,
+    bool Completed)
 {
     public bool IsValid =>
         !Issues.Any(static issue =>
-            issue.Severity == DataValidationSeverity.Error);
+            issue.Severity is JsonConfigurationSeverity.Error);
 }

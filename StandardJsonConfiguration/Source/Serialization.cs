@@ -4,17 +4,34 @@ namespace StandardJsonConfiguration.Source;
 
 internal static class JsonSerialization
 {
-    internal static T? Deserialize<T>(
-        string json,
-        JsonContract<T> contract) =>
+    internal static ValueTask<T?> DeserializeAsync<T>(
+        Stream utf8Json,
+        JsonContract<T> contract,
+        CancellationToken cancellationToken) =>
         contract.TypeInfo is not null
-            ? JsonSerializer.Deserialize(json, contract.TypeInfo)
-            : JsonSerializer.Deserialize<T>(json, contract.Options);
+            ? JsonSerializer.DeserializeAsync(
+                utf8Json,
+                contract.TypeInfo,
+                cancellationToken)
+            : JsonSerializer.DeserializeAsync<T>(
+                utf8Json,
+                contract.Options,
+                cancellationToken);
 
-    internal static string Serialize<T>(
+    internal static Task SerializeAsync<T>(
+        Stream utf8Json,
         T value,
-        JsonContract<T> contract) =>
+        JsonContract<T> contract,
+        CancellationToken cancellationToken) =>
         contract.TypeInfo is not null
-            ? JsonSerializer.Serialize(value, contract.TypeInfo)
-            : JsonSerializer.Serialize(value, contract.Options);
+            ? JsonSerializer.SerializeAsync(
+                utf8Json,
+                value,
+                contract.TypeInfo,
+                cancellationToken)
+            : JsonSerializer.SerializeAsync(
+                utf8Json,
+                value,
+                contract.Options,
+                cancellationToken);
 }

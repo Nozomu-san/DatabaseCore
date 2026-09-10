@@ -6,16 +6,12 @@ public enum ProviderFailureMode
     Skip
 }
 
-public sealed record DataPipelinePolicy
+public sealed class DataPipelinePolicy
 {
-    public bool StartWithDefault { get; init; } = true;
-
-    public ProviderFailureMode MissingProvider { get; init; } =
-        ProviderFailureMode.Skip;
-
-    public ProviderFailureMode InvalidProvider { get; init; } =
-        ProviderFailureMode.Stop;
-
-    public ProviderFailureMode UnavailableProvider { get; init; } =
-        ProviderFailureMode.Stop;
+    public bool StartWithDefault { get; set; } = true;
+    public ProviderFailureMode MissingProvider { get; set; } = ProviderFailureMode.Skip;
+    public ProviderFailureMode InvalidProvider { get; set; } = ProviderFailureMode.Stop;
+    public ProviderFailureMode UnavailableProvider { get; set; } = ProviderFailureMode.Stop;
+    public int? MaximumConcurrentProviders { get; set; }
+    public TimeSpan? ProviderTimeout { get; set; }
 }
